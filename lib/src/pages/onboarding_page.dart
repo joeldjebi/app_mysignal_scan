@@ -102,7 +102,7 @@ class OnboardingPage extends StatelessWidget {
                 const SizedBox(height: 8),
                 Center(
                   child: Text(
-                    'Partner Scan by MySignal',
+                    'MySignal Scan',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: AppColors.muted,
                     ),

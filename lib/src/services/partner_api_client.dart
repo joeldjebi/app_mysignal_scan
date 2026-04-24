@@ -9,7 +9,7 @@ class PartnerApiClient {
           baseUrl ??
           const String.fromEnvironment(
             'API_BASE_URL',
-            defaultValue: 'http://192.168.1.15:8000/api',
+            defaultValue: 'https://my-signal.online/api',
           );
 
   final String baseUrl;
@@ -259,14 +259,14 @@ class PartnerApiClient {
       return decoded;
     } on SocketException {
       throw ApiException(
-        'Impossible de joindre l’API. Verifie l’URL serveur et la connectivité réseau.',
+        "Impossible de joindre l'API. Verifie l URL du serveur et la connexion reseau.",
       );
     } on HandshakeException {
       throw ApiException(
-        'Connexion TLS invalide. Verifie le certificat du serveur.',
+        'Connexion securisee invalide. Verifie le certificat du serveur.',
       );
     } on HttpException catch (error) {
-      throw ApiException(error.message);
+      throw ApiException(_localizeMessage(error.message));
     } finally {
       client.close(force: true);
     }
@@ -280,7 +280,7 @@ class PartnerApiClient {
     final message = json['message'];
 
     if (message is String && message.trim().isNotEmpty) {
-      return message;
+      return _localizeMessage(message);
     }
 
     final errors = _extractErrors(json);
@@ -296,10 +296,83 @@ class PartnerApiClient {
 
     return rawErrors.map((key, value) {
       final messages = value is List<dynamic>
-          ? value.map((item) => '$item').toList()
-          : <String>['$value'];
+          ? value.map((item) => _localizeMessage('$item')).toList()
+          : <String>[_localizeMessage('$value')];
 
       return MapEntry(key, messages);
     });
+  }
+
+  String _localizeMessage(String message) {
+    final trimmed = message.trim();
+    if (trimmed.isEmpty) {
+      return 'Une erreur est survenue.';
+    }
+
+    final normalized = trimmed.toLowerCase();
+
+    const exactTranslations = <String, String>{
+      'invalid credentials.': 'Numero ou mot de passe incorrect.',
+      'invalid credentials': 'Numero ou mot de passe incorrect.',
+      'unauthorized': 'Acces non autorise.',
+      'forbidden': 'Acces refuse.',
+      'the provided credentials are incorrect.':
+          'Numero ou mot de passe incorrect.',
+      'these credentials do not match our records.':
+          'Numero ou mot de passe incorrect.',
+      'user not found.': 'Aucun compte correspondant n a ete trouve.',
+      'user not found': 'Aucun compte correspondant n a ete trouve.',
+      'too many attempts. please try again later.':
+          'Trop de tentatives. Reessaie plus tard.',
+      'server error': 'Erreur serveur. Reessaie dans un instant.',
+    };
+
+    final exact = exactTranslations[normalized];
+    if (exact != null) {
+      return exact;
+    }
+
+    if (normalized.contains('invalid credential') ||
+        normalized.contains('incorrect password') ||
+        normalized.contains('wrong password') ||
+        normalized.contains('bad credentials') ||
+        normalized.contains('credentials do not match')) {
+      return 'Numero ou mot de passe incorrect.';
+    }
+
+    if (normalized.contains('too many attempt') ||
+        normalized.contains('too many request')) {
+      return 'Trop de tentatives. Reessaie plus tard.';
+    }
+
+    if (normalized.contains('user not found') ||
+        normalized.contains('account not found')) {
+      return 'Aucun compte correspondant n a ete trouve.';
+    }
+
+    var localized = trimmed;
+
+    final replacements = <Pattern, String>{
+      RegExp(r'\bThe given data was invalid\.?', caseSensitive: false):
+          'Les informations saisies sont invalides.',
+      RegExp(r'\bThe phone field is required\.?', caseSensitive: false):
+          'Le numero est obligatoire.',
+      RegExp(r'\bThe password field is required\.?', caseSensitive: false):
+          'Le mot de passe est obligatoire.',
+      RegExp(r'\bThe phone field must be a string\.?', caseSensitive: false):
+          'Le numero saisi est invalide.',
+      RegExp(r'\bThe password field must be a string\.?', caseSensitive: false):
+          'Le mot de passe saisi est invalide.',
+      RegExp(r'\bThe selected [\w_ -]+ is invalid\.?', caseSensitive: false):
+          'La valeur selectionnee est invalide.',
+      RegExp(r'\bThis action is unauthorized\.?', caseSensitive: false):
+          'Cette action n est pas autorisee.',
+    };
+
+    replacements.forEach((pattern, replacement) {
+      localized = localized.replaceAll(pattern, replacement);
+    });
+
+    return localized;
   }
 }

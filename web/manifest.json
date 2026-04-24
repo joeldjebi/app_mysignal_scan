@@ -1,6 +1,6 @@
 {
-    "name": "app_scan",
-    "short_name": "app_scan",
+    "name": "MySignal Scan",
+    "short_name": "MySignal Scan",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
