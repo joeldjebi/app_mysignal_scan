@@ -358,6 +358,56 @@ class PartnerStats {
   }
 }
 
+class PartnerNotification {
+  const PartnerNotification({
+    required this.id,
+    required this.type,
+    required this.title,
+    required this.body,
+    required this.category,
+    required this.categoryLabel,
+    required this.data,
+    required this.readAt,
+    required this.createdAt,
+  });
+
+  final int id;
+  final String type;
+  final String title;
+  final String body;
+  final String category;
+  final String categoryLabel;
+  final Map<String, dynamic> data;
+  final String? readAt;
+  final String? createdAt;
+
+  bool get isUnread => readAt == null || readAt!.isEmpty;
+
+  factory PartnerNotification.fromJson(Map<String, dynamic> json) {
+    return PartnerNotification(
+      id: json['id'] as int? ?? 0,
+      type: json['type'] as String? ?? '',
+      title: json['title'] as String? ?? 'Notification',
+      body: json['body'] as String? ?? '',
+      category: json['category'] as String? ?? 'general',
+      categoryLabel: json['category_label'] as String? ?? 'Général',
+      data: json['data'] as Map<String, dynamic>? ?? const {},
+      readAt: json['read_at'] as String?,
+      createdAt: json['created_at'] as String?,
+    );
+  }
+}
+
+class PartnerNotificationsResult {
+  const PartnerNotificationsResult({
+    required this.notifications,
+    required this.unreadCount,
+  });
+
+  final List<PartnerNotification> notifications;
+  final int unreadCount;
+}
+
 double? _toDouble(Object? value) {
   if (value == null) {
     return null;

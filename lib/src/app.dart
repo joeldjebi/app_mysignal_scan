@@ -4,6 +4,7 @@ import 'core/theme/app_theme.dart';
 import 'core/widgets/app_shell_widgets.dart';
 import 'pages/history_page.dart';
 import 'pages/login_page.dart';
+import 'pages/notifications_page.dart';
 import 'pages/onboarding_page.dart';
 import 'pages/qr_scanner_page.dart';
 import 'pages/settings_page.dart';
@@ -111,6 +112,7 @@ class _AuthenticatedShellState extends State<AuthenticatedShell> {
             _selectedIndex = 2;
           });
         },
+        onOpenNotifications: () => _openNotificationsPage(),
       ),
       VerifyDiscountPage(
         controller: widget.controller,
@@ -140,28 +142,36 @@ class _AuthenticatedShellState extends State<AuthenticatedShell> {
             _selectedIndex = index;
           });
         },
-        destinations: const [
-          NavigationDestination(
+        destinations: [
+          const NavigationDestination(
             icon: Icon(Icons.dashboard_outlined),
             selectedIcon: Icon(Icons.dashboard_rounded),
             label: 'Dashboard',
           ),
-          NavigationDestination(
+          const NavigationDestination(
             icon: Icon(Icons.verified_outlined),
             selectedIcon: Icon(Icons.verified_rounded),
             label: 'Vérification',
           ),
-          NavigationDestination(
+          const NavigationDestination(
             icon: Icon(Icons.history_outlined),
             selectedIcon: Icon(Icons.history_rounded),
             label: 'Historique',
           ),
-          NavigationDestination(
+          const NavigationDestination(
             icon: Icon(Icons.settings_outlined),
             selectedIcon: Icon(Icons.settings_rounded),
             label: 'Paramètres',
           ),
         ],
+      ),
+    );
+  }
+
+  Future<void> _openNotificationsPage() {
+    return Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => NotificationsPage(controller: widget.controller),
       ),
     );
   }

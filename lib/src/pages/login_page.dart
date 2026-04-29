@@ -59,9 +59,33 @@ class _LoginPageState extends State<LoginPage> {
       );
     } on ApiException catch (error) {
       setState(() {
-        _error = error.message;
+        _error = _resolveLoginError(error);
       });
     }
+  }
+
+  String _resolveLoginError(ApiException error) {
+    const fallback = 'Numero de telephone ou mot de passe incorrecte';
+
+    final normalizedMessage = error.message.toLowerCase();
+    final errorKeys = error.errors.keys.map((key) => key.toLowerCase()).toSet();
+
+    final hasCredentialError =
+        normalizedMessage.contains('invalid credential') ||
+        normalizedMessage.contains('incorrect') ||
+        normalizedMessage.contains('required') ||
+        normalizedMessage.contains('and 1 more error') ||
+        normalizedMessage.contains('and 2 more error') ||
+        errorKeys.contains('phone') ||
+        errorKeys.contains('password') ||
+        errorKeys.contains('e-mail') ||
+        errorKeys.contains('email');
+
+    if (hasCredentialError) {
+      return fallback;
+    }
+
+    return error.message;
   }
 
   String _formatPhoneNumber() {
@@ -77,6 +101,11 @@ class _LoginPageState extends State<LoginPage> {
 
     if (digitsOnly.startsWith('00')) {
       return '+${digitsOnly.substring(2)}';
+    }
+
+    final dialDigits = _selectedDialCode.replaceAll(RegExp(r'[^0-9]'), '');
+    if (digitsOnly.startsWith(dialDigits)) {
+      return '+$digitsOnly';
     }
 
     return '$_selectedDialCode$digitsOnly';
@@ -135,19 +164,19 @@ class _LoginPageState extends State<LoginPage> {
                         Text(
                           'Connexion partenaire',
                           style: theme.textTheme.headlineMedium?.copyWith(
-                            fontSize: 25,
-                            height: 1.08,
+                            fontSize: 21,
+                            height: 1.05,
                           ),
                         ),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 6),
                         Text(
                           'Accedez au scan des cartes de réduction avec votre numéro et mot de passe.',
-                          style: theme.textTheme.bodyMedium?.copyWith(
+                          style: theme.textTheme.bodySmall?.copyWith(
                             color: AppColors.muted,
-                            height: 1.35,
+                            height: 1.28,
                           ),
                         ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 10),
                         Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 14,
@@ -168,7 +197,7 @@ class _LoginPageState extends State<LoginPage> {
                               Expanded(
                                 child: Text(
                                   'Connexion sécurisée partenaire',
-                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                  style: theme.textTheme.bodySmall?.copyWith(
                                     color: AppColors.primary,
                                     fontWeight: FontWeight.w700,
                                   ),
@@ -189,8 +218,8 @@ class _LoginPageState extends State<LoginPage> {
                                 decoration: const InputDecoration(
                                   labelText: 'Indicatif',
                                   contentPadding: EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 16,
+                                    horizontal: 10,
+                                    vertical: 12,
                                   ),
                                 ),
                                 selectedItemBuilder: (context) {
@@ -203,6 +232,7 @@ class _LoginPageState extends State<LoginPage> {
                                         overflow: TextOverflow.ellipsis,
                                         style: theme.textTheme.bodyMedium
                                             ?.copyWith(
+                                              fontSize: 13,
                                               fontWeight: FontWeight.w700,
                                             ),
                                       ),
@@ -239,6 +269,13 @@ class _LoginPageState extends State<LoginPage> {
                                 decoration: const InputDecoration(
                                   labelText: 'Numéro',
                                   hintText: '07 58 75 46 62',
+                                  contentPadding: EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 12,
+                                  ),
+                                ),
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  fontSize: 13,
                                 ),
                                 validator: (value) {
                                   if (value == null || value.trim().isEmpty) {
@@ -266,6 +303,10 @@ class _LoginPageState extends State<LoginPage> {
                           decoration: InputDecoration(
                             labelText: 'Mot de passe',
                             prefixIcon: const Icon(Icons.lock_outline),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 12,
+                            ),
                             suffixIcon: IconButton(
                               onPressed: () {
                                 setState(() {
@@ -282,6 +323,9 @@ class _LoginPageState extends State<LoginPage> {
                                   : 'Afficher le mot de passe',
                             ),
                           ),
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontSize: 13,
+                          ),
                           validator: (value) {
                             if (value == null || value.isEmpty) {
                               return 'Renseigne le mot de passe.';
@@ -295,6 +339,7 @@ class _LoginPageState extends State<LoginPage> {
                           Text(
                             _error!,
                             style: theme.textTheme.bodyMedium?.copyWith(
+                              fontSize: 13,
                               color: theme.colorScheme.error,
                               fontWeight: FontWeight.w600,
                             ),
@@ -320,7 +365,7 @@ class _LoginPageState extends State<LoginPage> {
                               label: Text(
                                 widget.controller.isAuthenticating
                                     ? 'Connexion...'
-                                    : 'Se connectér',
+                                    : 'Se connecter',
                               ),
                             ),
                           ),

@@ -1,4 +1,4 @@
-package com.mysignal.scanpro
+package com.mysignal.partnerappscan
 
 import io.flutter.embedding.android.FlutterActivity
 

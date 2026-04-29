@@ -1,16 +1,40 @@
 # app_scan
 
-A new Flutter project.
+Application mobile partenaire MYSIGNAL pour scanner les cartes de reduction.
 
-## Getting Started
+## Configuration locale
 
-This project is a starting point for a Flutter application.
+Copier le fichier d exemple puis renseigner les valeurs Firebase Android :
 
-A few resources to get you started if this is your first Flutter project:
+```bash
+cp config/firebase.example.json config/firebase.local.json
+```
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+Le fichier `config/firebase.local.json` est ignore par Git.
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+Lancer l application avec les variables :
+
+```bash
+flutter run --dart-define-from-file=config/firebase.local.json
+```
+
+Build debug :
+
+```bash
+flutter build apk --debug --dart-define-from-file=config/firebase.local.json
+```
+
+Valeurs attendues dans le fichier :
+
+```json
+{
+  "API_BASE_URL": "https://my-signal.online/api",
+  "FIREBASE_ANDROID_API_KEY": "",
+  "FIREBASE_ANDROID_APP_ID": "",
+  "FIREBASE_MESSAGING_SENDER_ID": "",
+  "FIREBASE_PROJECT_ID": "my-signal-1b9d9",
+  "FIREBASE_STORAGE_BUCKET": ""
+}
+```
+
+Important : dans Firebase, l application Android doit correspondre au package Android utilise par l app, actuellement `com.mysignal.scanci`.

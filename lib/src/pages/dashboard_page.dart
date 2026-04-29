@@ -13,11 +13,13 @@ class DashboardPage extends StatefulWidget {
     required this.controller,
     required this.onStartScan,
     required this.onOpenHistory,
+    required this.onOpenNotifications,
   });
 
   final PartnerSessionController controller;
   final VoidCallback onStartScan;
   final VoidCallback onOpenHistory;
+  final VoidCallback onOpenNotifications;
 
   @override
   State<DashboardPage> createState() => _DashboardPageState();
@@ -120,17 +122,27 @@ class _DashboardPageState extends State<DashboardPage> {
             AppPageHeader(
               title: 'Bienvenue',
               subtitle: user?.organization?.name ?? 'Espace partenaire',
-              trailing: IconButton.filledTonal(
-                onPressed: controller.isRefreshing
-                    ? null
-                    : () => _refreshDashboardData(showLoader: true),
-                icon: controller.isRefreshing
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.refresh_rounded),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _NotificationButton(
+                    unreadCount: controller.unreadNotificationsCount,
+                    onPressed: widget.onOpenNotifications,
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton.filledTonal(
+                    onPressed: controller.isRefreshing
+                        ? null
+                        : () => _refreshDashboardData(showLoader: true),
+                    icon: controller.isRefreshing
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.refresh_rounded),
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 14),
@@ -275,6 +287,34 @@ class _DashboardPageState extends State<DashboardPage> {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _NotificationButton extends StatelessWidget {
+  const _NotificationButton({
+    required this.unreadCount,
+    required this.onPressed,
+  });
+
+  final int unreadCount;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final icon = IconButton.filledTonal(
+      tooltip: 'Notifications',
+      onPressed: onPressed,
+      icon: const Icon(Icons.notifications_outlined),
+    );
+
+    if (unreadCount == 0) {
+      return icon;
+    }
+
+    return Badge(
+      label: Text(unreadCount > 99 ? '99+' : '$unreadCount'),
+      child: icon,
     );
   }
 }

@@ -1,8 +1,12 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/api_models.dart';
 import '../services/partner_api_client.dart';
+import '../services/push_notification_service.dart';
 
 enum AppStage { bootstrapping, onboarding, unauthenticated, authenticated }
 
@@ -14,17 +18,23 @@ class PartnerSessionController extends ChangeNotifier {
   static const _tokenTypeKey = 'partner_token_type';
   static const _expiresInKey = 'partner_expires_in';
   static const _onboardingDoneKey = 'partner_onboarding_done';
+  static const _lastPushTokenKey = 'partner_last_push_token';
 
   final PartnerApiClient _api;
+  final PushNotificationService _pushNotifications = PushNotificationService();
 
   AppStage _stage = AppStage.bootstrapping;
   PartnerSession? _session;
   List<PartnerOffer> _offers = const [];
   List<PartnerDiscountTransaction> _history = const [];
+  List<PartnerNotification> _notifications = const [];
   PartnerStats? _stats;
   String? _offersWarning;
+  String? _pushWarning;
+  int _unreadNotificationsCount = 0;
   bool _isAuthenticating = false;
   bool _isRefreshing = false;
+  bool _isLoadingNotifications = false;
   bool _isSavingProfile = false;
   bool _isUpdatingPassword = false;
 
@@ -32,10 +42,14 @@ class PartnerSessionController extends ChangeNotifier {
   PartnerSession? get session => _session;
   List<PartnerOffer> get offers => _offers;
   List<PartnerDiscountTransaction> get history => _history;
+  List<PartnerNotification> get notifications => _notifications;
   PartnerStats? get stats => _stats;
   String? get offersWarning => _offersWarning;
+  String? get pushWarning => _pushWarning;
+  int get unreadNotificationsCount => _unreadNotificationsCount;
   bool get isAuthenticating => _isAuthenticating;
   bool get isRefreshing => _isRefreshing;
+  bool get isLoadingNotifications => _isLoadingNotifications;
   bool get isSavingProfile => _isSavingProfile;
   bool get isUpdatingPassword => _isUpdatingPassword;
   String get baseUrl => _api.baseUrl;
@@ -64,6 +78,7 @@ class PartnerSessionController extends ChangeNotifier {
       _stage = AppStage.authenticated;
       notifyListeners();
 
+      await _initializePushNotifications();
       await refreshPartnerData(showLoader: true);
     } on ApiException {
       await _clearStoredSession(prefs);
@@ -106,6 +121,7 @@ class PartnerSessionController extends ChangeNotifier {
       _stage = AppStage.authenticated;
       notifyListeners();
 
+      await _initializePushNotifications();
       await refreshPartnerData(showLoader: true);
     } finally {
       _isAuthenticating = false;
@@ -117,6 +133,16 @@ class PartnerSessionController extends ChangeNotifier {
     final token = _session?.accessToken;
 
     if (token != null && token.isNotEmpty) {
+      final prefs = await SharedPreferences.getInstance();
+      final pushToken = prefs.getString(_lastPushTokenKey);
+      if (pushToken != null && pushToken.isNotEmpty) {
+        try {
+          await _api.deletePushToken(token: token, fcmToken: pushToken);
+        } catch (_) {
+          // The local state is still cleared if push-token revocation fails.
+        }
+      }
+
       try {
         await _api.logout(token);
       } catch (_) {
@@ -127,8 +153,11 @@ class PartnerSessionController extends ChangeNotifier {
     _session = null;
     _offers = const [];
     _history = const [];
+    _notifications = const [];
     _stats = null;
     _offersWarning = null;
+    _pushWarning = null;
+    _unreadNotificationsCount = 0;
     await _clearStoredSession();
     _stage = AppStage.unauthenticated;
     notifyListeners();
@@ -168,6 +197,11 @@ class PartnerSessionController extends ChangeNotifier {
         dateFrom: statsDateFrom,
         dateTo: statsDateTo,
       );
+      try {
+        await refreshNotifications();
+      } catch (_) {
+        // The dashboard stays usable even if notifications are temporarily unavailable.
+      }
 
       _session = PartnerSession(
         accessToken: currentSession.accessToken,
@@ -280,6 +314,86 @@ class PartnerSessionController extends ChangeNotifier {
     }
   }
 
+  Future<void> refreshNotifications({bool showLoader = false}) async {
+    final currentSession = _session;
+    if (currentSession == null) {
+      return;
+    }
+
+    if (showLoader) {
+      _isLoadingNotifications = true;
+      notifyListeners();
+    }
+
+    try {
+      final result = await _api.fetchNotifications(currentSession.accessToken);
+      _notifications = result.notifications;
+      _unreadNotificationsCount = result.unreadCount;
+      notifyListeners();
+    } finally {
+      _isLoadingNotifications = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> markNotificationAsRead(int notificationId) async {
+    final currentSession = _session;
+    if (currentSession == null) {
+      return;
+    }
+
+    await _api.markNotificationAsRead(
+      token: currentSession.accessToken,
+      notificationId: notificationId,
+    );
+    await refreshNotifications();
+  }
+
+  Future<void> markAllNotificationsAsRead() async {
+    final currentSession = _session;
+    if (currentSession == null) {
+      return;
+    }
+
+    await _api.markAllNotificationsAsRead(currentSession.accessToken);
+    await refreshNotifications();
+  }
+
+  Future<void> _initializePushNotifications() async {
+    final currentSession = _session;
+    if (currentSession == null) {
+      return;
+    }
+
+    final result = await _pushNotifications.initialize(
+      onToken: (details) async {
+        final saveResponse = await _api.registerPushToken(
+          token: currentSession.accessToken,
+          fcmToken: details.token,
+          platform: details.platform,
+          deviceName: details.deviceName,
+          appVersion: details.appVersion,
+        );
+
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(_lastPushTokenKey, details.token);
+        _logPush('token_save_response', saveResponse);
+      },
+      onMessage: (_) => refreshNotifications(),
+    );
+
+    _logPush('configuration_result', result.toLogPayload());
+
+    _pushWarning = result.configured
+        ? null
+        : 'Notifications push non configurees sur ce build.';
+    notifyListeners();
+  }
+
+  void _logPush(String event, Map<String, dynamic> payload) {
+    debugPrint('[MYSIGNAL_PUSH] $event $payload');
+  }
+
   Future<void> _persistSession(PartnerSession session) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_onboardingDoneKey, true);
@@ -293,5 +407,12 @@ class PartnerSessionController extends ChangeNotifier {
     await storage.remove(_tokenKey);
     await storage.remove(_tokenTypeKey);
     await storage.remove(_expiresInKey);
+    await storage.remove(_lastPushTokenKey);
+  }
+
+  @override
+  void dispose() {
+    unawaited(_pushNotifications.dispose());
+    super.dispose();
   }
 }

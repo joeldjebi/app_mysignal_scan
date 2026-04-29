@@ -39,15 +39,20 @@ class _QrScannerPageState extends State<QrScannerPage> {
       return;
     }
 
+    debugPrint('[MYSIGNAL_SCAN] qr_raw_value $rawValue');
+
     final cardUuid = _extractCardUuid(rawValue);
 
     if (cardUuid == null) {
+      debugPrint('[MYSIGNAL_SCAN] qr_extract_error missing_card_uuid');
       setState(() {
         _error =
             'QR code invalide. Le code doit contenir le card_uuid de la carte.';
       });
       return;
     }
+
+    debugPrint('[MYSIGNAL_SCAN] qr_card_uuid $cardUuid');
 
     _isProcessing = true;
     Navigator.of(context).pop(cardUuid);
